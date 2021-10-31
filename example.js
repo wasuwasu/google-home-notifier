@@ -1,108 +1,115 @@
-var express = require('express');
-var googlehome = require('./google-home-notifier');
-var ngrok = require('ngrok');
-var bodyParser = require('body-parser');
-var app = express();
-const serverPort = 8091; // default port
+let express = require('express');
+let googlehome = require('./google-home-notifier');
+let app = express();
+let os = require('os');
+const serverPort = 8091;
 
-var deviceName = 'Google Home';
-var ip = '192.168.1.20'; // default IP
+const deviceName = 'Google-Home-Mini';
+// const googleHomeIp = '192.168.1.12';
+const language = 'ja';
+// const language = 'en';
+const endpointPath = '/google-home-notifier';
 
-var urlencodedParser = bodyParser.urlencoded({ extended: false });
+app.use(express.json())
+/**
+ * POST API
+ */
+app.post(endpointPath, function (req, res) {
 
-app.post('/google-home-notifier', urlencodedParser, function (req, res) {
-  
-  if (!req.body) return res.sendStatus(400)
   console.log(req.body);
-  
-  var text = req.body.text;
-  
-  if (req.query.ip) {
-     ip = req.query.ip;
+  if (!req.body) return res.sendStatus(400)
+  if (!req.body.text) return res.sendStatus(400)
+
+  if (req.body.language) {
+    language = req.body.language;
   }
 
-  var language = 'pl'; // default language code
-  if (req.query.language) {
-    language;
-  }
+  // googlehome.ip(googleHomeIp, language);
+  googlehome.device(deviceName, language);
 
-  googlehome.ip(ip, language);
-  googlehome.device(deviceName,language);
-
-  if (text){
+  let text = req.body.text;
+  if (text) {
     try {
-      if (text.startsWith('http')){
-        var mp3_url = text;
-        googlehome.play(mp3_url, function(notifyRes) {
+      if (text.startsWith('http')) {
+        googlehome.play(text, function (notifyRes) {
           console.log(notifyRes);
-          res.send(deviceName + ' will play sound from url: ' + mp3_url + '\n');
+          res.json({ 'message': deviceName + ' will play sound from url: ' + text });
         });
       } else {
-        googlehome.notify(text, function(notifyRes) {
+        googlehome.notify(text, function (notifyRes) {
           console.log(notifyRes);
-          res.send(deviceName + ' will say: ' + text + '\n');
+          res.json({ 'message': deviceName + ' will say: ' + text });
         });
       }
-    } catch(err) {
+    } catch (err) {
       console.log(err);
       res.sendStatus(500);
       res.send(err);
     }
-  }else{
-    res.send('Please GET "text=Hello Google Home"');
+  } else {
+    res.json({ 'message': 'Please GET "text=Hello Google Home"' });
   }
 })
 
-app.get('/google-home-notifier', function (req, res) {
+/**
+ * GET API
+ */
+app.get(endpointPath, function (req, res) {
 
   console.log(req.query);
-
   var text = req.query.text;
-
-  if (req.query.ip) {
-     ip = req.query.ip;
-  }
-
-  var language = 'pl'; // default language code
   if (req.query.language) {
     language;
   }
-
-  googlehome.ip(ip, language);
-  googlehome.device(deviceName,language);
+  // googlehome.ip(googleHomeIp, language);
+  googlehome.device(deviceName, language);
 
   if (text) {
     try {
-      if (text.startsWith('http')){
+      if (text.startsWith('http')) {
         var mp3_url = text;
-        googlehome.play(mp3_url, function(notifyRes) {
+        googlehome.play(mp3_url, function (notifyRes) {
           console.log(notifyRes);
           res.send(deviceName + ' will play sound from url: ' + mp3_url + '\n');
         });
       } else {
-        googlehome.notify(text, function(notifyRes) {
+        googlehome.notify(text, function (notifyRes) {
           console.log(notifyRes);
           res.send(deviceName + ' will say: ' + text + '\n');
         });
       }
-    } catch(err) {
+    } catch (err) {
       console.log(err);
       res.sendStatus(500);
       res.send(err);
     }
-  }else{
+  } else {
     res.send('Please GET "text=Hello+Google+Home"');
   }
 })
 
 app.listen(serverPort, function () {
-  ngrok.connect(serverPort, function (err, url) {
-    console.log('Endpoints:');
-    console.log('    http://' + ip + ':' + serverPort + '/google-home-notifier');
-    console.log('    ' + url + '/google-home-notifier');
-    console.log('GET example:');
-    console.log('curl -X GET ' + url + '/google-home-notifier?text=Hello+Google+Home');
-	console.log('POST example:');
-	console.log('curl -X POST -d "text=Hello Google Home" ' + url + '/google-home-notifier');
-  });
+  const url = 'http://' + getLocalIP() + ':' + serverPort;
+  console.log('Endpoints:');
+  console.log('    ' + url + endpointPath);
+  console.log('GET example:');
+  console.log('curl -X GET ' + url + endpointPath + '?text=Hello+Google+Home');
+  console.log('POST example:');
+  console.log('curl -X POST -H "Content-Type:application/json" -d \'{"text":"Google Home"}\'' + url + endpointPath);
 })
+
+function getLocalIP() {
+  var ifaces = os.networkInterfaces();
+  let localIp
+  Object.keys(ifaces).forEach(function (ifname) {
+    ifaces[ifname].forEach(function (iface) {
+      if (iface.family == 'IPv4' &&
+        iface.internal == false &&
+        iface.address.startsWith('192')) {
+        console.log(ifname, iface.address);
+        localIp = iface.address;
+      }
+    });
+  });
+  return localIp;
+}
