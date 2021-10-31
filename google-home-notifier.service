@@ -1,0 +1,15 @@
+[Unit]
+Description=google-home-notifier server
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/home/wasuwasu/.nvm/versions/node/v14.4.0/bin/node /home/wasuwasu/google-home-notifier/googlehome-notifier-server.js
+WorkingDirectory=/home/wasuwasu/google-home-notifier
+KillMode=process
+Restart=always
+User=wasuwasu
+Group=wasuwasu
+
+[Install]
+WantedBy=multi-user.target
